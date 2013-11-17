@@ -54,26 +54,26 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
         }
 
-        public async Task CreateAsync(T user)
+        public Task CreateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
             TableOperation operation = TableOperation.Insert(user);
-            await _userTable.ExecuteAsync(operation);
+            return  _userTable.ExecuteAsync(operation);
         }
 
-        public async Task UpdateAsync(T user)
+        public Task UpdateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Replace(user);
-            await _userTable.ExecuteAsync(operation);
+            return _userTable.ExecuteAsync(operation);
         }
 
-        public async Task DeleteAsync(T user)
+        public Task DeleteAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Delete(user);
-            await _userTable.ExecuteAsync(operation);
+            return _userTable.ExecuteAsync(operation);
         }
 
         public Task<T> FindByIdAsync(string userId)

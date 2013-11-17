@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>accidentalfish.aspnet.identity.azure</id>
-    <version>0.1.0.0</version>
+    <version>0.1.1.0</version>
     <title>Azure Table Storage Identity Provider (OWIN / OAuth)</title>
     <authors>James Randall</authors>
     <owners>James Randall</owners>
