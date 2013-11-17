@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{D454B8
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAPI2AuthenticationExample.Web", "WebAPI2AuthenticationExample.Web\WebAPI2AuthenticationExample.Web.csproj", "{8C2C969E-7C2E-4851-B31E-550FB92F8B08}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,6 +24,10 @@ Global
 		{AD659E28-6C2F-49B6-B00D-A3E2F08ABB0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AD659E28-6C2F-49B6-B00D-A3E2F08ABB0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AD659E28-6C2F-49B6-B00D-A3E2F08ABB0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
