@@ -54,26 +54,26 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
         }
 
-        public Task CreateAsync(T user)
+        public async Task CreateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
             TableOperation operation = TableOperation.Insert(user);
-            return  _userTable.ExecuteAsync(operation);
+            await _userTable.ExecuteAsync(operation);
         }
 
-        public Task UpdateAsync(T user)
+        public async Task UpdateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Replace(user);
-            return _userTable.ExecuteAsync(operation);
+            await _userTable.ExecuteAsync(operation);
         }
 
-        public Task DeleteAsync(T user)
+        public async Task DeleteAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Delete(user);
-            return _userTable.ExecuteAsync(operation);
+            await _userTable.ExecuteAsync(operation);
         }
 
         public Task<T> FindByIdAsync(string userId)
@@ -130,22 +130,22 @@ namespace AccidentalFish.AspNet.Identity.Azure
             });
         }
 
-        public Task AddLoginAsync(T user, UserLoginInfo loginInfo)
+        public async Task AddLoginAsync(T user, UserLoginInfo loginInfo)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
             TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
             TableOperation operation = TableOperation.Insert(login);
-            return _loginTable.ExecuteAsync(operation);
+            await _loginTable.ExecuteAsync(operation);
         }
 
-        public Task RemoveLoginAsync(T user, UserLoginInfo loginInfo)
+        public async Task RemoveLoginAsync(T user, UserLoginInfo loginInfo)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
             TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
             TableOperation operation = TableOperation.Delete(login);
-            return _loginTable.ExecuteAsync(operation);
+            await  _loginTable.ExecuteAsync(operation);
         }
 
         public Task<IList<UserLoginInfo>> GetLoginsAsync(T user)
@@ -201,40 +201,40 @@ namespace AccidentalFish.AspNet.Identity.Azure
             return claims;
         }
 
-        public Task AddClaimAsync(T user, Claim claim)
+        public async Task AddClaimAsync(T user, Claim claim)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (claim == null) throw new ArgumentNullException("claim");
             TableUserClaim tableUserClaim = new TableUserClaim(user.Id, claim.Type, claim.Value);
             TableOperation operation = TableOperation.Insert(tableUserClaim);
-            return _claimsTable.ExecuteAsync(operation);
+            await _claimsTable.ExecuteAsync(operation);
         }
 
-        public Task RemoveClaimAsync(T user, Claim claim)
+        public async Task RemoveClaimAsync(T user, Claim claim)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (claim == null) throw new ArgumentNullException("claim");
             TableUserClaim tableUserClaim = new TableUserClaim(user.Id, claim.Type, claim.Value);
             TableOperation operation = TableOperation.Delete(tableUserClaim);
-            return _claimsTable.ExecuteAsync(operation);
+            await _claimsTable.ExecuteAsync(operation);
         }
 
-        public Task AddToRoleAsync(T user, string role)
+        public async Task AddToRoleAsync(T user, string role)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (String.IsNullOrWhiteSpace(role)) throw new ArgumentNullException("role");
             TableUserRole tableUserRole = new TableUserRole(user.Id, role);
             TableOperation operation = TableOperation.Insert(tableUserRole);
-            return _rolesTable.ExecuteAsync(operation);
+            await _rolesTable.ExecuteAsync(operation);
         }
 
-        public Task RemoveFromRoleAsync(T user, string role)
+        public async Task RemoveFromRoleAsync(T user, string role)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (String.IsNullOrWhiteSpace(role)) throw new ArgumentNullException("role");
             TableUserRole tableUserRole = new TableUserRole(user.Id, role);
             TableOperation operation = TableOperation.Delete(tableUserRole);
-            return _rolesTable.ExecuteAsync(operation);
+            await _rolesTable.ExecuteAsync(operation);
         }
 
         public async Task<IList<string>> GetRolesAsync(T user)
