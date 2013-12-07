@@ -41,13 +41,28 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (incomingPrincipal != null && incomingPrincipal.Identity.IsAuthenticated)
             {
-                string tenantId = incomingPrincipal.FindFirst(TenantIdClaim).Value;
+                // Get the claims required to make further Graph API enquiries about the user
+                Claim tenantClaim = incomingPrincipal.FindFirst(TenantIdClaim);
+                if (tenantClaim == null)
+                {
+                    throw new NotSupportedException("Tenant claim not available, role authentication is not supported");
+                }
+                Claim objectIdentifierClaim = incomingPrincipal.FindFirst(ObjectIdentifierClaim);
+                if (objectIdentifierClaim == null)
+                {
+                    throw new NotSupportedException("Object identifier claim not available, role authentication is not supported");
+                }
+
+                string tenantId = tenantClaim.Value;
+                string currentUserObjectId = objectIdentifierClaim.Value;
+
+                // Connect to the graph service
                 AADJWTToken token = DirectoryDataServiceAuthorizationHelper.GetAuthorizationToken(tenantId, _clientId, _password);
                 DirectoryDataService graphService = new DirectoryDataService(tenantId, token);
 
                 // Find the user in the graph
-                string currentUserObjectId = incomingPrincipal.FindFirst(ObjectIdentifierClaim).Value;
-                User currentUser = graphService.directoryObjects.OfType<User>().SingleOrDefault(it => (it.objectId == currentUserObjectId));
+// ReSharper disable once ReplaceWithSingleCallToSingleOrDefault - SingleOrDefault not supported on directory service directly
+                User currentUser = graphService.directoryObjects.OfType<User>().Where(it => (it.objectId == currentUserObjectId)).SingleOrDefault();
                 if (currentUser == null)
                 {
                     throw new SecurityException("User cannot be found in graph");
