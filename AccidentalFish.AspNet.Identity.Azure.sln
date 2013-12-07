@@ -14,6 +14,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{D454B8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAPI2AuthenticationExample.Web", "WebAPI2AuthenticationExample.Web\WebAPI2AuthenticationExample.Web.csproj", "{8C2C969E-7C2E-4851-B31E-550FB92F8B08}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrganisationalAccountAuthenticationExample.Web", "OrganisationalAccountAuthenticationExample.Web\OrganisationalAccountAuthenticationExample.Web.csproj", "{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packaging", "Packaging", "{6D32155C-E562-4A47-AA36-0DE1CC6F1C5A}"
+	ProjectSection(SolutionItems) = preProject
+		AccidentalFish.AspNet.Identity.Azure\nuget\AccidentalFish.AspNet.Identity.Azure.nuspec = AccidentalFish.AspNet.Identity.Azure\nuget\AccidentalFish.AspNet.Identity.Azure.nuspec
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,6 +35,10 @@ Global
 		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8C2C969E-7C2E-4851-B31E-550FB92F8B08}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

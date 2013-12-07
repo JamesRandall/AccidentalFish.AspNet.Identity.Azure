@@ -9,6 +9,12 @@ using Microsoft.Owin.Security.OAuth;
 
 namespace AccidentalFish.AspNet.Identity.Azure
 {
+    /// <summary>
+    /// This class is a reworking of the ApplicationOAuthProvider that is supplied with a MVC / Web API class
+    /// to support a generic type of IUser. The pre-supplied implementation is irritatingly tied to the Entity Framework
+    /// implementation of IUser.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class GenericApplicationOAuthProvider<T> : OAuthAuthorizationServerProvider where T : class, IUser
     {
         private readonly string _publicClientId;
