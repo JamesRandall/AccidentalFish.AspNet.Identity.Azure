@@ -10,7 +10,7 @@ model that add support for common Azure usage scenarios. Currently included are:
 -   Use Azure Table Storage as a store for identity information with the new
     OAuth implementation
 
-The assembly is available as a [NuGet package names ASP.Net 4.5 Azure Identity
+The assembly is available as a [NuGet package named ASP.Net 4.5 Azure Identity
 Helpers][1].
 
 [1]: <https://www.nuget.org/packages/accidentalfish.aspnet.identity.azure/>
