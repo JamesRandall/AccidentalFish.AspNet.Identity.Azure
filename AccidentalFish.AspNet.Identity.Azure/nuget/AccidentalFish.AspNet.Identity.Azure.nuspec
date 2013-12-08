@@ -7,7 +7,7 @@
     <authors>James Randall</authors>
     <owners>James Randall</owners>
     <licenseUrl>https://raw.github.com/JamesRandall/AccidentalFish.AspNet.Identity.Azure/master/LICENSE</licenseUrl>
-    <projectUrl>http://www.azurefromthetrenches.com/?p=681</projectUrl>
+    <projectUrl>https://github.com/JamesRandall/AccidentalFish.AspNet.Identity.Azure</projectUrl>
     <iconUrl>http://www.accidentalfish.com/nugetidentity.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>ASP.Net identity utilities for Azure</description>
