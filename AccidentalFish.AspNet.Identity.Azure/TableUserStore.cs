@@ -15,14 +15,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
         private readonly CloudTable _loginTable;
         private readonly CloudTable _claimsTable;
         private readonly CloudTable _rolesTable;
+        private readonly CloudTable _userIndexTable;
 
-        public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist, string userTableName, string loginsTableName, string claimsTable, string rolesTable)
+        public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist, string userTableName, string userIndexTableName, string loginsTableName, string claimsTable, string rolesTable)
         {
             CloudTableClient tableClient = storageAccount.CreateCloudTableClient();
             _userTable = tableClient.GetTableReference(userTableName);
             _loginTable = tableClient.GetTableReference(loginsTableName);
             _claimsTable = tableClient.GetTableReference(claimsTable);
             _rolesTable = tableClient.GetTableReference(rolesTable);
+            _userIndexTable = tableClient.GetTableReference(userIndexTableName);
 
             if (createIfNotExist)
             {
@@ -30,6 +32,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 _loginTable.CreateIfNotExists();
                 _claimsTable.CreateIfNotExists();
                 _rolesTable.CreateIfNotExists();
+                _userIndexTable.CreateIfNotExists();
             }
         }
 
@@ -39,7 +42,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         }
 
         public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist) :
-            this(storageAccount, createIfNotExist, "users", "logins", "claims", "roles")
+            this(storageAccount, createIfNotExist, "users", "userIndexItems", "logins", "claims", "roles")
         {
             
         }
@@ -54,12 +57,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
         }
 
-        public async Task CreateAsync(T user)
+        public Task CreateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
+            TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName, user.Id);
             TableOperation operation = TableOperation.Insert(user);
-            await _userTable.ExecuteAsync(operation);
+            TableOperation indexOperation = TableOperation.Insert(indexItem);
+
+            Task[] tasks = {_userTable.ExecuteAsync(operation), _userIndexTable.ExecuteAsync(indexOperation)};
+            return Task.WhenAll(tasks);
         }
 
         public async Task UpdateAsync(T user)
@@ -81,10 +88,19 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (String.IsNullOrWhiteSpace(userId)) throw new ArgumentNullException("userId");
             return Task.Factory.StartNew(() =>
             {
+                TableQuery<TableUserIdIndex> indexQuery = new TableQuery<TableUserIdIndex>().Where(
+                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userId)).Take(1);
+                IEnumerable<TableUserIdIndex> indexResults = _userIndexTable.ExecuteQuery(indexQuery);
+                TableUserIdIndex indexItem = indexResults.SingleOrDefault();
+                if (indexItem == null)
+                {
+                    return null;
+                }
+
                 TableQuery<T> query =
                     new TableQuery<T>().Where(
-                        TableQuery.GenerateFilterCondition("RowKey",
-                            QueryComparisons.Equal, userId)).Take(1);
+                        TableQuery.GenerateFilterCondition("PartitionKey",
+                            QueryComparisons.Equal, indexItem.RowKey)).Take(1);
                 IEnumerable<T> results = _userTable.ExecuteQuery(query);
                 T result = results.SingleOrDefault();
                 if (result != null)
