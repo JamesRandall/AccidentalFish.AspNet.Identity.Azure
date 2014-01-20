@@ -10,7 +10,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
     {
         public void SetPartitionAndRowKey()
         {
-            PartitionKey = UserName;
+            PartitionKey = Id;
             RowKey = Id;
         }
 

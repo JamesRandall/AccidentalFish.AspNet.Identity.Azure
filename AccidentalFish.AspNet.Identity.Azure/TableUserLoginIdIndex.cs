@@ -11,8 +11,11 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
         public TableUserIdIndex(string userName, string userId)
         {
-            PartitionKey = userId;
+            PartitionKey = userName;
             RowKey = userName;
+            UserId = userId;
         }
+
+        public string UserId { get; set; }
     }
 }

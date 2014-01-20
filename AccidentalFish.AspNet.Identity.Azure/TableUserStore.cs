@@ -88,19 +88,10 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (String.IsNullOrWhiteSpace(userId)) throw new ArgumentNullException("userId");
             return Task.Factory.StartNew(() =>
             {
-                TableQuery<TableUserIdIndex> indexQuery = new TableQuery<TableUserIdIndex>().Where(
-                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userId)).Take(1);
-                IEnumerable<TableUserIdIndex> indexResults = _userIndexTable.ExecuteQuery(indexQuery);
-                TableUserIdIndex indexItem = indexResults.SingleOrDefault();
-                if (indexItem == null)
-                {
-                    return null;
-                }
-
                 TableQuery<T> query =
                     new TableQuery<T>().Where(
                         TableQuery.GenerateFilterCondition("PartitionKey",
-                            QueryComparisons.Equal, indexItem.RowKey)).Take(1);
+                            QueryComparisons.Equal, userId)).Take(1);
                 IEnumerable<T> results = _userTable.ExecuteQuery(query);
                 T result = results.SingleOrDefault();
                 if (result != null)
@@ -137,10 +128,20 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (String.IsNullOrWhiteSpace(userName)) throw new ArgumentNullException("userName");
             return Task.Factory.StartNew(() =>
             {
+                TableQuery<TableUserIdIndex> indexQuery = new TableQuery<TableUserIdIndex>().Where(
+                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userName)).Take(1);
+                IEnumerable<TableUserIdIndex> indexResults = _userIndexTable.ExecuteQuery(indexQuery);
+                TableUserIdIndex indexItem = indexResults.SingleOrDefault();
+
+                if (indexItem == null)
+                {
+                    return null;
+                }
+
                 TableQuery<T> query =
                     new TableQuery<T>().Where(
                         TableQuery.GenerateFilterCondition("PartitionKey",
-                            QueryComparisons.Equal, userName)).Take(1);
+                            QueryComparisons.Equal, indexItem.UserId)).Take(1);
                 IEnumerable<T> results = _userTable.ExecuteQuery(query);
                 return results.SingleOrDefault();
             });
