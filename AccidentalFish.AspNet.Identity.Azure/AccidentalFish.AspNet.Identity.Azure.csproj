@@ -88,6 +88,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DuplicateUsernameException.cs" />
     <Compile Include="GenericApplicationOAuthProvider.cs" />
     <Compile Include="GraphAPIHelper\AADJWTToken.cs" />
     <Compile Include="GraphAPIHelper\DirectoryDataServiceAuthorizationHelper.cs" />

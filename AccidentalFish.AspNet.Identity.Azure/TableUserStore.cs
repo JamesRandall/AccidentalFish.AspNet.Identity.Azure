@@ -57,16 +57,38 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
         }
 
-        public Task CreateAsync(T user)
+        public async Task CreateAsync(T user)
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
             TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName, user.Id);
-            TableOperation operation = TableOperation.Insert(user);
             TableOperation indexOperation = TableOperation.Insert(indexItem);
 
-            Task[] tasks = {_userTable.ExecuteAsync(operation), _userIndexTable.ExecuteAsync(indexOperation)};
-            return Task.WhenAll(tasks);
+            try
+            {
+                await _userIndexTable.ExecuteAsync(indexOperation);
+            }
+            catch (StorageException ex)
+            {
+                if (ex.RequestInformation.HttpStatusCode == 409)
+                {
+                    throw new DuplicateUsernameException();
+                }
+                throw;
+            }
+            
+            TableOperation operation = TableOperation.Insert(user);
+            try
+            {
+                await _userTable.ExecuteAsync(operation);
+            }
+            catch (Exception)
+            {
+                // attempt to delete the index item - needs work
+                TableOperation deleteOperation = TableOperation.Delete(indexItem);
+                _userIndexTable.ExecuteAsync(deleteOperation).Wait();
+                throw;
+            }
         }
 
         public async Task UpdateAsync(T user)
