@@ -56,6 +56,10 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 AuthenticationTicket ticket = new AuthenticationTicket(oAuthIdentity, properties);
                 context.Validated(ticket);
                 context.Request.Context.Authentication.SignIn(cookiesIdentity);
+
+                // Note: this isn't in the original MVC / Microsoft implementation but it means the documented function
+                // doesn't get called (OnGrantResourceOwnerCredentials)
+                await base.GrantResourceOwnerCredentials(context);
             }
         }
 
