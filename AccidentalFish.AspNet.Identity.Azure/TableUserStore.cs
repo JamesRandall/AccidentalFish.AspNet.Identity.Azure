@@ -287,7 +287,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
             while (querySegment == null || querySegment.ContinuationToken != null)
             {
-                querySegment = await _claimsTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                querySegment = await _rolesTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
                 claims.AddRange(querySegment.Results.Select(x => x.Name));
             }
 
