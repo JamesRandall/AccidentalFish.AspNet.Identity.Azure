@@ -77,10 +77,20 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 throw;
             }
             
-            TableOperation operation = TableOperation.Insert(user);
+            
             try
             {
+                TableOperation operation = TableOperation.InsertOrReplace(user);
                 await _userTable.ExecuteAsync(operation);
+
+                TableBatchOperation batch = new TableBatchOperation();
+                foreach (TableUserLogin login in user.Logins)
+                {
+                    login.UserId = user.Id;
+                    login.SetPartitionAndRowKey();
+                    batch.InsertOrReplace(login);
+                }
+                await _loginTable.ExecuteBatchAsync(batch);
             }
             catch (Exception)
             {
