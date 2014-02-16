@@ -31,9 +31,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             get
             {
-                if (_roles == null && LazyRolesEvaluator != null)
+                if (_roles == null)
                 {
-                    _roles = new List<TableUserRole>(LazyRolesEvaluator());
+                    if (LazyRolesEvaluator != null)
+                    {
+                        _roles = new List<TableUserRole>(LazyRolesEvaluator());
+                    }
+                    else
+                    {
+                        _roles = new List<TableUserRole>();
+                    }
                 }
                 return _roles;
             }
@@ -48,9 +55,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             get
             {
-                if (_claims == null && LazyClaimsEvaluator != null)
+                if (_claims == null)
                 {
-                    _claims = new List<TableUserClaim>(LazyClaimsEvaluator());
+                    if (LazyClaimsEvaluator != null)
+                    {
+                        _claims = new List<TableUserClaim>(LazyClaimsEvaluator());
+                    }
+                    else
+                    {
+                        _claims = new List<TableUserClaim>();
+                    }
                 }
                 return _claims;
             }
@@ -65,9 +79,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             get
             {
-                if (_logins == null && LazyLoginEvaluator != null)
+                if (_logins == null)
                 {
-                    _logins = new List<TableUserLogin>(LazyLoginEvaluator());
+                    if (LazyLoginEvaluator != null)
+                    {
+                        _logins = new List<TableUserLogin>(LazyLoginEvaluator());
+                    }
+                    else
+                    {
+                        _logins = new List<TableUserLogin>();
+                    }
                 }
                 return _logins;
             }
