@@ -83,14 +83,17 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 TableOperation operation = TableOperation.InsertOrReplace(user);
                 await _userTable.ExecuteAsync(operation);
 
-                TableBatchOperation batch = new TableBatchOperation();
-                foreach (TableUserLogin login in user.Logins)
+                if (user.Logins.Any())
                 {
-                    login.UserId = user.Id;
-                    login.SetPartitionAndRowKey();
-                    batch.InsertOrReplace(login);
+                    TableBatchOperation batch = new TableBatchOperation();
+                    foreach (TableUserLogin login in user.Logins)
+                    {
+                        login.UserId = user.Id;
+                        login.SetPartitionAndRowKey();
+                        batch.InsertOrReplace(login);
+                    }
+                    await _loginTable.ExecuteBatchAsync(batch);
                 }
-                await _loginTable.ExecuteBatchAsync(batch);
             }
             catch (Exception)
             {
@@ -315,7 +318,9 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public Task SetPasswordHashAsync(T user, string passwordHash)
         {
             if (user == null) throw new ArgumentNullException("user");
-            if (String.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentNullException("passwordHash");
+            // If you add and remove a password from a user (only way to do a non-authenticated reset)
+            // then this will get set to null
+            //if (String.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentNullException("passwordHash");
 
             user.PasswordHash = passwordHash;
             return Task.FromResult(0);
