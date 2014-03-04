@@ -89,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DuplicateUsernameException.cs" />
+    <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="GenericApplicationOAuthProvider.cs" />
     <Compile Include="GraphAPIHelper\AADJWTToken.cs" />
     <Compile Include="GraphAPIHelper\DirectoryDataServiceAuthorizationHelper.cs" />
@@ -102,6 +103,7 @@
     <Compile Include="TableUserIndexBuilder.cs" />
     <Compile Include="TableUserLogin.cs" />
     <Compile Include="TableUserLoginIdIndex.cs" />
+    <Compile Include="TableUserLoginProviderKeyIndex.cs" />
     <Compile Include="TableUserRole.cs" />
     <Compile Include="TableUserStore.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

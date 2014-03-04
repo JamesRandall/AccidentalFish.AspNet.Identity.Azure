@@ -16,8 +16,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
         private readonly CloudTable _claimsTable;
         private readonly CloudTable _rolesTable;
         private readonly CloudTable _userIndexTable;
+        private readonly CloudTable _loginProviderKeyIndexTable;
 
-        public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist, string userTableName, string userIndexTableName, string loginsTableName, string claimsTable, string rolesTable)
+        public TableUserStore(CloudStorageAccount storageAccount,
+            bool createIfNotExist,
+            string userTableName,
+            string userIndexTableName,
+            string loginsTableName,
+            string loginProviderKeyIndexTableName,
+            string claimsTable,
+            string rolesTable)
         {
             CloudTableClient tableClient = storageAccount.CreateCloudTableClient();
             _userTable = tableClient.GetTableReference(userTableName);
@@ -25,6 +33,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             _claimsTable = tableClient.GetTableReference(claimsTable);
             _rolesTable = tableClient.GetTableReference(rolesTable);
             _userIndexTable = tableClient.GetTableReference(userIndexTableName);
+            _loginProviderKeyIndexTable = tableClient.GetTableReference(loginProviderKeyIndexTableName);
 
             if (createIfNotExist)
             {
@@ -33,6 +42,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 _claimsTable.CreateIfNotExists();
                 _rolesTable.CreateIfNotExists();
                 _userIndexTable.CreateIfNotExists();
+                _loginProviderKeyIndexTable.CreateIfNotExists();
             }
         }
 
@@ -42,7 +52,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         }
 
         public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist) :
-            this(storageAccount, createIfNotExist, "users", "userIndexItems", "logins", "claims", "roles")
+            this(storageAccount, createIfNotExist, "users", "userIndexItems", "logins", "loginProviderKeyIndex", "claims", "roles")
         {
             
         }
@@ -86,13 +96,22 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 if (user.Logins.Any())
                 {
                     TableBatchOperation batch = new TableBatchOperation();
+                    List<TableUserLoginProviderKeyIndex> loginIndexItems = new List<TableUserLoginProviderKeyIndex>();
                     foreach (TableUserLogin login in user.Logins)
                     {
                         login.UserId = user.Id;
                         login.SetPartitionAndRowKey();
                         batch.InsertOrReplace(login);
+
+                        TableUserLoginProviderKeyIndex loginIndexItem = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+                        loginIndexItems.Add(loginIndexItem);
                     }
                     await _loginTable.ExecuteBatchAsync(batch);
+                    // can't batch the index items as different primary keys
+                    foreach (TableUserLoginProviderKeyIndex loginIndexItem in loginIndexItems)
+                    {
+                        await _loginProviderKeyIndexTable.ExecuteAsync(TableOperation.InsertOrReplace(loginIndexItem));
+                    }
                 }
             }
             catch (Exception)
@@ -217,22 +236,13 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public async Task<T> FindAsync(UserLoginInfo login)
         {
             if (login == null) throw new ArgumentNullException("login");
-            string providerKeyQuery = TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, login.ProviderKey);
-            string loginProviderQuery = TableQuery.GenerateFilterCondition("LoginProvider", QueryComparisons.Equal, login.LoginProvider);
-            string combinedQuery = TableQuery.CombineFilters(providerKeyQuery, TableOperators.And, loginProviderQuery);
 
-            return await Task.Factory.StartNew(async () =>
-            {
-                T result = null;
-                TableQuery<TableUserLogin> query = new TableQuery<TableUserLogin>().Where(combinedQuery).Take(1);
-                TableUserLogin loginResult = _loginTable.ExecuteQuery(query).FirstOrDefault();
-                if (loginResult != null)
-                {
-                    result = await FindByIdAsync(loginResult.UserId);
-                }
+            TableUserLoginProviderKeyIndex candidateIndex = new TableUserLoginProviderKeyIndex("", login.ProviderKey, login.LoginProvider);
+            TableResult loginProviderKeyIndexResult = await _loginProviderKeyIndexTable.ExecuteAsync(TableOperation.Retrieve<TableUserLoginProviderKeyIndex>(candidateIndex.PartitionKey, ""));
+            TableUserLoginProviderKeyIndex indexItem = (TableUserLoginProviderKeyIndex)loginProviderKeyIndexResult.Result;
+            if (indexItem == null) return null;
 
-                return result;
-            }).Result;
+            return await FindByIdAsync(indexItem.UserId);
         }
 
         public async Task<IList<Claim>> GetClaimsAsync(T user)
