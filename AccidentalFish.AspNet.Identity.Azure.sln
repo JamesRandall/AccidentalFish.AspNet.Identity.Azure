@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packaging", "Packaging", "{
 		AccidentalFish.AspNet.Identity.Azure\nuget\AccidentalFish.AspNet.Identity.Azure.nuspec = AccidentalFish.AspNet.Identity.Azure\nuget\AccidentalFish.AspNet.Identity.Azure.nuspec
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MVC5AuthenticationExample.Web", "MVC5AuthenticationExample.Web\MVC5AuthenticationExample.Web.csproj", "{70D0047C-5CC7-44B8-97F2-17E11E6B072A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EEA45D77-B8B8-443C-ACE8-1064FF82E7DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
