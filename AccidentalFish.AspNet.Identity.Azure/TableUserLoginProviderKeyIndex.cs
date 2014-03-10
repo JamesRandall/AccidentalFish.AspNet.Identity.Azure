@@ -4,7 +4,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 
 namespace AccidentalFish.AspNet.Identity.Azure
 {
-    class TableUserLoginProviderKeyIndex : TableEntity
+    public class TableUserLoginProviderKeyIndex : TableEntity
     {
         public TableUserLoginProviderKeyIndex(string userId, string loginProviderKey, string loginProvider)
         {
@@ -12,6 +12,9 @@ namespace AccidentalFish.AspNet.Identity.Azure
             RowKey = "";
             UserId = userId;
         }
+        
+        // Add a parameterless constructor to resolve issue in TableUserStore.cs FindAsync
+        public TableUserLoginProviderKeyIndex() { }
 
         public string GetLoginProvider()
         {
