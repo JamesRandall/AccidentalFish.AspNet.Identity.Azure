@@ -132,8 +132,7 @@ ASP.Net New Project templates contain code that is needlessly tied to the Entity
 Framework so there are a few steps you need to take to swap out the Entity
 Framework implementation.
 
-The instructions below assume you have created a Web API 2 project (I’ll follow
-up with straight MVC guidance shortly).
+### Web API 2
 
 Firstly add the NuGet package to your project which you can do in the Package
 Manager GUI or in the console:
@@ -161,6 +160,32 @@ That’s all the changes complete and with the approach taken above the new
 identity provider will function just like the Entity Framework version creating
 tables in your storage account when necessary.
 
+### MVC 5
+
+Firstly add the NuGet package to your project which you can do in the Package
+Manager GUI or in the console:
+
+`Install-Package accidentalfish.aspnet.identity.azure`
+
+You may need to update various NuGet packages, depeding on the MVC template you are starting from.  If you get ambiguous reference errors or invalid reference versions, that would be the first thing to try.
+
+Now open the *Startup.Auth.cs* file and add the block of code shown to the top of the class:
+
+![](<https://raw.github.com/Andorbal/AccidentalFish.AspNet.Identity.Azure.Blobs/master/mvc-step01.png>)
+
+Next, open the *IdentityModels.cs* file and replace the entire file with the code below (make sure to use your project's namespace instead of the example namespace):
+
+![](<https://raw.github.com/Andorbal/AccidentalFish.AspNet.Identity.Azure.Blobs/master/mvc-step02.png>)
+
+Then, open the *AccountController.cs* file and replace the constructor with the code below:
+
+![](<https://raw.github.com/Andorbal/AccidentalFish.AspNet.Identity.Azure.Blobs/master/mvc-step03.png>)
+
+Finally, add the table storage connection string to your web.config file.  The following entry is appropriate for development:
+
+![](<https://raw.github.com/Andorbal/AccidentalFish.AspNet.Identity.Azure.Blobs/master/mvc-step04.png>)
+
+You will need to remove any using statement that references EntityFramework so that the application can compile and run.
 
 
 License
