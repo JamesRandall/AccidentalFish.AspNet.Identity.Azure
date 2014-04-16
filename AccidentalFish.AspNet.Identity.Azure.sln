@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{563167
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MVC5AuthenticationIdentityProvider2Example.Web", "MVC5AuthenticationIdentityProvider2Example.Web\MVC5AuthenticationIdentityProvider2Example.Web.csproj", "{D9EA03E5-7E07-47E4-A3C6-CBFF463E0EB5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{70D0047C-5CC7-44B8-97F2-17E11E6B072A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9EA03E5-7E07-47E4-A3C6-CBFF463E0EB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9EA03E5-7E07-47E4-A3C6-CBFF463E0EB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9EA03E5-7E07-47E4-A3C6-CBFF463E0EB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9EA03E5-7E07-47E4-A3C6-CBFF463E0EB5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

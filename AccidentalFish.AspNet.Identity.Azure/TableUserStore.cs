@@ -444,9 +444,16 @@ namespace AccidentalFish.AspNet.Identity.Azure
             return Task.FromResult(0);
         }
 
-        public Task<T> FindByEmailAsync(string email)
+        public async Task<T> FindByEmailAsync(string email)
         {
-            throw new NotImplementedException();
+            TableOperation retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
+            TableResult indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
+            if (indexResult.Result != null)
+            {
+                T user = (T) indexResult.Result;
+                return await FindByIdAsync(user.Id);
+            }
+            return null;
         }
 
         public Task SetPhoneNumberAsync(T user, string phoneNumber)
