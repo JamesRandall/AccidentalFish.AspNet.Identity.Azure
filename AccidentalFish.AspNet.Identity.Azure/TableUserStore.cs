@@ -3,13 +3,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using AccidentalFish.AspNet.Identity.Azure.Extensions;
 using Microsoft.AspNet.Identity;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 
 namespace AccidentalFish.AspNet.Identity.Azure
 {
-    public class TableUserStore<T> : IUserLoginStore<T>, IUserClaimStore<T>, IUserRoleStore<T>, IUserPasswordStore<T>, IUserSecurityStampStore<T>, IUserStore<T>, IDisposable where T : TableUser, new()
+    public class TableUserStore<T> : 
+        IUserLoginStore<T>,
+        IUserClaimStore<T>,
+        IUserRoleStore<T>,
+        IUserPasswordStore<T>,
+        IUserSecurityStampStore<T>,
+        IUserStore<T>,
+        // 2.0 interfaces
+        //IQueryableUserStore<T>,
+        IUserEmailStore<T>,
+        IUserPhoneNumberStore<T>,
+        IUserTwoFactorStore<T, string>,
+        IUserLockoutStore<T, string>,
+        IDisposable where T : TableUser, new()
     {
         private readonly CloudTable _userTable;
         private readonly CloudTable _loginTable;
@@ -17,6 +31,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         private readonly CloudTable _rolesTable;
         private readonly CloudTable _userIndexTable;
         private readonly CloudTable _loginProviderKeyIndexTable;
+        private readonly CloudTable _userEmailIndexTable;
 
         public TableUserStore(CloudStorageAccount storageAccount,
             bool createIfNotExist,
@@ -25,7 +40,8 @@ namespace AccidentalFish.AspNet.Identity.Azure
             string loginsTableName,
             string loginProviderKeyIndexTableName,
             string claimsTable,
-            string rolesTable)
+            string rolesTable,
+            string userEmailIndexTableName)
         {
             CloudTableClient tableClient = storageAccount.CreateCloudTableClient();
             _userTable = tableClient.GetTableReference(userTableName);
@@ -34,6 +50,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             _rolesTable = tableClient.GetTableReference(rolesTable);
             _userIndexTable = tableClient.GetTableReference(userIndexTableName);
             _loginProviderKeyIndexTable = tableClient.GetTableReference(loginProviderKeyIndexTableName);
+            _userEmailIndexTable = tableClient.GetTableReference(userEmailIndexTableName);
 
             if (createIfNotExist)
             {
@@ -43,6 +60,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 _rolesTable.CreateIfNotExists();
                 _userIndexTable.CreateIfNotExists();
                 _loginProviderKeyIndexTable.CreateIfNotExists();
+                _userEmailIndexTable.CreateIfNotExists();
             }
         }
 
@@ -52,7 +70,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         }
 
         public TableUserStore(CloudStorageAccount storageAccount, bool createIfNotExist) :
-            this(storageAccount, createIfNotExist, "users", "userIndexItems", "logins", "loginProviderKeyIndex", "claims", "roles")
+            this(storageAccount, createIfNotExist, "users", "userIndexItems", "logins", "loginProviderKeyIndex", "claims", "roles", "userEmailIndex")
         {
             
         }
@@ -86,7 +104,35 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 }
                 throw;
             }
-            
+
+            if (!String.IsNullOrWhiteSpace(user.Email))
+            {
+                TableUserEmailIndex emailIndexItem = new TableUserEmailIndex(user.Email.Base64Encode(), user.Id);
+                TableOperation emailIndexOperation = TableOperation.Insert(emailIndexItem);
+                try
+                {
+                    await _userEmailIndexTable.ExecuteAsync(emailIndexOperation);
+                }
+                catch (StorageException ex)
+                {
+                    try
+                    {
+                        TableOperation deleteOperation = TableOperation.Delete(indexItem);
+                        _userIndexTable.ExecuteAsync(deleteOperation).Wait();
+                    }
+                    catch (Exception)
+                    {
+                        // if we can't delete the index item throw out the exception below
+                    }
+                    
+
+                    if (ex.RequestInformation.HttpStatusCode == 409)
+                    {
+                        throw new DuplicateEmailException();
+                    }
+                    throw;
+                }
+            }
             
             try
             {
@@ -125,6 +171,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
         public async Task UpdateAsync(T user)
         {
+            // assumption here is that a username can't change (if it did we'd need to fix the index)
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Replace(user);
             await _userTable.ExecuteAsync(operation);
@@ -363,5 +410,133 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
             return Task.FromResult(user.SecurityStamp);
         }
+
+        #region 2.0 interface implemenation
+
+        //public IQueryable<T> Users { get; private set; }
+
+        public Task SetEmailAsync(T user, string email)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (String.IsNullOrWhiteSpace(email)) throw new ArgumentNullException("email");
+
+            user.Email = email;
+            return Task.FromResult(0);
+        }
+
+        public Task<string> GetEmailAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.Email);
+        }
+
+        public Task<bool> GetEmailConfirmedAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.EmailConfirmed);
+        }
+
+        public Task SetEmailConfirmedAsync(T user, bool confirmed)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            
+            user.EmailConfirmed = confirmed;
+            return Task.FromResult(0);
+        }
+
+        public Task<T> FindByEmailAsync(string email)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetPhoneNumberAsync(T user, string phoneNumber)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            if (String.IsNullOrWhiteSpace(phoneNumber)) throw new ArgumentNullException("phoneNumber");
+
+            user.PhoneNumber = phoneNumber;
+            return Task.FromResult(0);
+        }
+
+        public Task<string> GetPhoneNumberAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.PhoneNumber);
+        }
+
+        public Task<bool> GetPhoneNumberConfirmedAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.PhoneNumberConfirmed);
+        }
+
+        public Task SetPhoneNumberConfirmedAsync(T user, bool confirmed)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            
+            user.PhoneNumberConfirmed = confirmed;
+            return Task.FromResult(0);
+        }
+
+        public Task SetTwoFactorEnabledAsync(T user, bool enabled)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+
+            user.TwoFactorEnabled = enabled;
+            return Task.FromResult(0);
+        }
+
+        public Task<bool> GetTwoFactorEnabledAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.TwoFactorEnabled);
+        }
+
+        public Task<DateTimeOffset> GetLockoutEndDateAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.LockoutEndDate);
+        }
+
+        public Task SetLockoutEndDateAsync(T user, DateTimeOffset lockoutEnd)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.LockoutEndDate);
+        }
+
+        public Task<int> IncrementAccessFailedCountAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.AccessFailedCount++;
+            return Task.FromResult(user.AccessFailedCount);
+        }
+
+        public Task ResetAccessFailedCountAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.AccessFailedCount = 0;
+            return Task.FromResult(0);
+        }
+
+        public Task<int> GetAccessFailedCountAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.AccessFailedCount);
+        }
+
+        public Task<bool> GetLockoutEnabledAsync(T user)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            return Task.FromResult(user.LockoutEnabled);
+        }
+
+        public Task SetLockoutEnabledAsync(T user, bool enabled)
+        {
+            if (user == null) throw new ArgumentNullException("user");
+            user.LockoutEnabled = enabled;
+            return Task.FromResult(0);
+        }
+
+        #endregion
     }
 }
