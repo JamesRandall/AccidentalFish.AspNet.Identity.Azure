@@ -453,6 +453,8 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
         public async Task<T> FindByEmailAsync(string email)
         {
+            if (String.IsNullOrWhiteSpace(email)) return null;
+
             TableOperation retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
             TableResult indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
             if (indexResult.Result != null)

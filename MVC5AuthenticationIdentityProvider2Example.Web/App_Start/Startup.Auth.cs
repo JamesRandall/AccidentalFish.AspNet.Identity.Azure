@@ -48,7 +48,7 @@ namespace MVC5AuthenticationIdentityProvider2Example.Web
             //   appId: "",
             //   appSecret: "");
 
-            //app.UseGoogleAuthentication();
+            app.UseGoogleAuthentication();
         }
     }
 }
