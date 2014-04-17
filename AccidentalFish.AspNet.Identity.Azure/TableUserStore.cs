@@ -25,6 +25,8 @@ namespace AccidentalFish.AspNet.Identity.Azure
         IUserLockoutStore<T, string>,
         IDisposable where T : TableUser, new()
     {
+        private readonly DateTimeOffset _minTableStoreDate = new DateTimeOffset(1753, 1, 1, 0, 0, 0, TimeSpan.FromHours(0));
+
         private readonly CloudTable _userTable;
         private readonly CloudTable _loginTable;
         private readonly CloudTable _claimsTable;
@@ -44,6 +46,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             string userEmailIndexTableName)
         {
             CloudTableClient tableClient = storageAccount.CreateCloudTableClient();
+            
             _userTable = tableClient.GetTableReference(userTableName);
             _loginTable = tableClient.GetTableReference(loginsTableName);
             _claimsTable = tableClient.GetTableReference(claimsTable);
@@ -136,6 +139,10 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
             try
             {
+                if (user.LockoutEndDate < _minTableStoreDate)
+                {
+                    user.LockoutEndDate = _minTableStoreDate;
+                }
                 TableOperation operation = TableOperation.InsertOrReplace(user);
                 await _userTable.ExecuteAsync(operation);
 
@@ -508,7 +515,12 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public Task SetLockoutEndDateAsync(T user, DateTimeOffset lockoutEnd)
         {
             if (user == null) throw new ArgumentNullException("user");
-            return Task.FromResult(user.LockoutEndDate);
+            if (lockoutEnd < _minTableStoreDate)
+            {
+                lockoutEnd = _minTableStoreDate;
+            }
+            user.LockoutEndDate = lockoutEnd;
+            return Task.FromResult(0);
         }
 
         public Task<int> IncrementAccessFailedCountAsync(T user)
