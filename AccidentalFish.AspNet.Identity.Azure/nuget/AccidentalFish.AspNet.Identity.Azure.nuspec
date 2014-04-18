@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>accidentalfish.aspnet.identity.azure</id>
-    <version>0.3.0.2</version>
+    <version>0.3.0.3</version>
     <title>ASP.Net 4.5 Azure Identity Helpers</title>
     <authors>James Randall</authors>
     <owners>James Randall</owners>
