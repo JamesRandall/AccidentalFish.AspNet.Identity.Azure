@@ -455,14 +455,11 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (String.IsNullOrWhiteSpace(email)) return null;
 
-            TableOperation retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
-            TableResult indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
-            if (indexResult.Result != null)
-            {
-                T user = (T) indexResult.Result;
-                return await FindByIdAsync(user.Id);
-            }
-            return null;
+            var retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
+            var indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
+            if (indexResult.Result == null) return null;
+            var user = (TableUserEmailIndex)indexResult.Result;
+            return await FindByIdAsync(user.UserId);
         }
 
         public Task SetPhoneNumberAsync(T user, string phoneNumber)
