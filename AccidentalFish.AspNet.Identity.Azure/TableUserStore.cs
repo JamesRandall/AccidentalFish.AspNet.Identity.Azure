@@ -259,18 +259,26 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
-            TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
-            TableOperation operation = TableOperation.Insert(login);
+
+            var login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
+            var operation = TableOperation.Insert(login);
             await _loginTable.ExecuteAsync(operation);
+
+            var loginIndexItem = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+            await _loginProviderKeyIndexTable.ExecuteAsync(TableOperation.InsertOrReplace(loginIndexItem));
         }
 
         public async Task RemoveLoginAsync(T user, UserLoginInfo loginInfo)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
-            TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
-            TableOperation operation = TableOperation.Delete(login);
-            await  _loginTable.ExecuteAsync(operation);
+            var login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
+            var operation = TableOperation.Delete(login);
+            await _loginTable.ExecuteAsync(operation);
+
+            var loginIndexItem = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+            var indexOperation = TableOperation.Delete(loginIndexItem);
+            await _loginProviderKeyIndexTable.ExecuteAsync(indexOperation);
         }
 
         public Task<IList<UserLoginInfo>> GetLoginsAsync(T user)
