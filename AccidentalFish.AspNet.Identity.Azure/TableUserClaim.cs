@@ -22,7 +22,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public void SetPartitionAndRowKey()
         {
             PartitionKey = UserId;
-            RowKey = ClaimType.Base64Encode();
+            RowKey = ClaimType.Base64Encode().Replace("/","-");
         }
 
         public string UserId { get; set; }
