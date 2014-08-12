@@ -120,6 +120,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 {
                     try
                     {
+                        indexItem.ETag = "*";
                         TableOperation deleteOperation = TableOperation.Delete(indexItem);
                         _userIndexTable.ExecuteAsync(deleteOperation).Wait();
                     }
@@ -170,6 +171,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             catch (Exception)
             {
                 // attempt to delete the index item - needs work
+                indexItem.ETag = "*";
                 TableOperation deleteOperation = TableOperation.Delete(indexItem);
                 _userIndexTable.ExecuteAsync(deleteOperation).Wait();
                 throw;
@@ -179,7 +181,8 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public async Task UpdateAsync(T user)
         {
             // assumption here is that a username can't change (if it did we'd need to fix the index)
-            if (user == null) throw new ArgumentNullException("user");
+            if (user == null) throw new ArgumentNullException("user"); 
+            user.ETag = "*";
             TableOperation operation = TableOperation.Replace(user);
             await _userTable.ExecuteAsync(operation);
         }
@@ -188,7 +191,47 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Delete(user);
+            user.ETag = "*";
             await _userTable.ExecuteAsync(operation);
+
+            //Clean up
+            try 
+            { 
+                await RemoveFromAllRolesAsync(user); 
+            }
+            catch { }
+
+            try
+            {
+                await RemoveAllClaimsAsync(user);
+            }
+            catch { }
+
+            try
+            {
+                await RemoveAllLoginsAsync(user);
+            }
+            catch { }
+
+            try
+            {
+                await RemoveIndices(user);
+            }
+            catch { }
+
+        }
+
+        private async Task RemoveIndices(T user)
+        {
+            TableUserIdIndex UserIdIndex = new TableUserIdIndex(user.UserName,user.Id);
+            UserIdIndex.ETag = "*";
+            TableUserEmailIndex EmailIndex = new TableUserEmailIndex(user.Email.Base64Encode(),user.Id);
+            EmailIndex.ETag = "*";
+
+            Task t1 = _userIndexTable.ExecuteAsync(TableOperation.Delete(UserIdIndex));
+            Task t2 = _userEmailIndexTable.ExecuteAsync(TableOperation.Delete(EmailIndex));
+
+            await Task.WhenAll(t1, t2);
         }
 
         public Task<T> FindByIdAsync(string userId)
@@ -269,8 +312,122 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
             TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
+            login.ETag = "*";
             TableOperation operation = TableOperation.Delete(login);
             await  _loginTable.ExecuteAsync(operation);
+        }
+
+        public async Task RemoveAllLoginsAsync(T user)
+        {
+            bool error = false;
+            List<TableUserLogin> Logins = new List<TableUserLogin>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserLogin> query = new TableQuery<TableUserLogin>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserLogin> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _loginTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                Logins.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            TableBatchOperation batchIndex = new TableBatchOperation();
+            foreach (TableUserLogin login in Logins)
+            {
+                batch.Add(TableOperation.Delete(login));
+                TableUserLoginProviderKeyIndex providerKeyIndex = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+                providerKeyIndex.ETag = "*";
+                batchIndex.Add(TableOperation.Delete(providerKeyIndex));
+
+                if (batch.Count >= 100 || batchIndex.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        Task t1 = _loginTable.ExecuteBatchAsync(batch);
+                        Task t2 = _loginProviderKeyIndexTable.ExecuteBatchAsync(batchIndex);
+                        await Task.WhenAll(t1, t2);
+                        batch.Clear();
+                        batchIndex.Clear();
+                    }
+                    catch { }
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            _loginTable.Execute(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batchIndex)
+                    {
+                        try
+                        {
+                            _loginProviderKeyIndexTable.Execute(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                    batchIndex.Clear();
+                }
+
+            }
+            if (batch.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    Task t1 = _loginTable.ExecuteBatchAsync(batch);
+                    Task t2 = _loginProviderKeyIndexTable.ExecuteBatchAsync(batchIndex);
+                    await Task.WhenAll(t1, t2);
+                    batch.Clear();
+                    batchIndex.Clear();
+                }
+                catch { }
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        _loginTable.Execute(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batchIndex)
+                {
+                    try
+                    {
+                        _loginProviderKeyIndexTable.Execute(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+
+            if (error)
+            {
+                throw new Exception();
+            }
         }
 
         public Task<IList<UserLoginInfo>> GetLoginsAsync(T user)
@@ -331,8 +488,85 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (user == null) throw new ArgumentNullException("user");
             if (claim == null) throw new ArgumentNullException("claim");
             TableUserClaim tableUserClaim = new TableUserClaim(user.Id, claim.Type, claim.Value);
+            tableUserClaim.ETag = "*";
             TableOperation operation = TableOperation.Delete(tableUserClaim);
             await _claimsTable.ExecuteAsync(operation);
+        }
+
+        public async Task RemoveAllClaimsAsync(T user)
+        {
+            bool error = false;
+            List<TableUserClaim> Claims = new List<TableUserClaim>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserClaim> query = new TableQuery<TableUserClaim>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserClaim> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _claimsTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                Claims.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            foreach (TableUserClaim claim in Claims)
+            {
+                batch.Add(TableOperation.Delete(claim));
+                if (batch.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        await _claimsTable.ExecuteBatchAsync(batch);
+                        batch.Clear();
+                    }
+                    catch {}
+
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            _claimsTable.Execute(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                }
+            }
+            if (batch.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    await _claimsTable.ExecuteBatchAsync(batch);
+                    batch.Clear();
+                }
+                catch { }
+
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        _claimsTable.Execute(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+
+            if(error)
+            {
+                throw new Exception();
+            }
         }
 
         public async Task AddToRoleAsync(T user, string role)
@@ -349,8 +583,82 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (user == null) throw new ArgumentNullException("user");
             if (String.IsNullOrWhiteSpace(role)) throw new ArgumentNullException("role");
             TableUserRole tableUserRole = new TableUserRole(user.Id, role);
+            tableUserRole.ETag = "*";
             TableOperation operation = TableOperation.Delete(tableUserRole);
             await _rolesTable.ExecuteAsync(operation);
+        }
+
+        public async Task RemoveFromAllRolesAsync(T user)
+        {
+            bool error = false;
+            List<TableUserRole> Roles = new List<TableUserRole>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserRole> query = new TableQuery<TableUserRole>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserRole> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _rolesTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                Roles.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            foreach (TableUserRole role in Roles)
+            {
+                batch.Add(TableOperation.Delete(role));
+                if (batch.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        await _rolesTable.ExecuteBatchAsync(batch);
+                        batch.Clear();
+                    }
+                    catch { }
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            _rolesTable.Execute(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                }
+            }
+            if (batch.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    await _rolesTable.ExecuteBatchAsync(batch);
+                    batch.Clear();
+                }
+                catch { }
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        _rolesTable.Execute(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+            if(error)
+            {
+                throw new Exception();
+            }
         }
 
         public async Task<IList<string>> GetRolesAsync(T user)
