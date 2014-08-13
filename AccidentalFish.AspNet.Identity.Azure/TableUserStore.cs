@@ -92,7 +92,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
-            TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName, user.Id);
+            TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName.Base64Encode(), user.Id);
             TableOperation indexOperation = TableOperation.Insert(indexItem);
 
             try
@@ -223,7 +223,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
         private async Task RemoveIndices(T user)
         {
-            TableUserIdIndex UserIdIndex = new TableUserIdIndex(user.UserName,user.Id);
+            TableUserIdIndex UserIdIndex = new TableUserIdIndex(user.UserName.Base64Encode(),user.Id);
             UserIdIndex.ETag = "*";
             TableUserEmailIndex EmailIndex = new TableUserEmailIndex(user.Email.Base64Encode(),user.Id);
             EmailIndex.ETag = "*";
@@ -280,7 +280,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             return Task.Factory.StartNew(() =>
             {
                 TableQuery<TableUserIdIndex> indexQuery = new TableQuery<TableUserIdIndex>().Where(
-                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userName)).Take(1);
+                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userName.Base64Encode())).Take(1);
                 IEnumerable<TableUserIdIndex> indexResults = _userIndexTable.ExecuteQuery(indexQuery);
                 TableUserIdIndex indexItem = indexResults.SingleOrDefault();
 
@@ -345,6 +345,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             TableBatchOperation batchIndex = new TableBatchOperation();
             foreach (TableUserLogin login in Logins)
             {
+                login.ETag = "*"; //Delete even if it has changed
                 batch.Add(TableOperation.Delete(login));
                 TableUserLoginProviderKeyIndex providerKeyIndex = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
                 providerKeyIndex.ETag = "*";
@@ -355,11 +356,8 @@ namespace AccidentalFish.AspNet.Identity.Azure
                     try
                     {
                         //Try executing as a batch
-                        Task t1 = _loginTable.ExecuteBatchAsync(batch);
-                        Task t2 = _loginProviderKeyIndexTable.ExecuteBatchAsync(batchIndex);
-                        await Task.WhenAll(t1, t2);
+                        await _loginTable.ExecuteBatchAsync(batch);
                         batch.Clear();
-                        batchIndex.Clear();
                     }
                     catch { }
 
@@ -368,7 +366,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                     {
                         try
                         {
-                            _loginTable.Execute(op);
+                            await _loginTable.ExecuteAsync(op);
                         }
                         catch
                         {
@@ -376,12 +374,12 @@ namespace AccidentalFish.AspNet.Identity.Azure
                         }
                     }
 
-                    //If a batch wont work, try individually
+                    //Delete the index individually becase of the partition keys
                     foreach (TableOperation op in batchIndex)
                     {
                         try
                         {
-                            _loginProviderKeyIndexTable.Execute(op);
+                            await _loginProviderKeyIndexTable.ExecuteAsync(op);
                         }
                         catch
                         {
@@ -394,16 +392,13 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 }
 
             }
-            if (batch.Count > 0)
+            if (batch.Count > 0 || batchIndex.Count > 0)
             {
                 try
                 {
                     //Try executing as a batch
-                    Task t1 = _loginTable.ExecuteBatchAsync(batch);
-                    Task t2 = _loginProviderKeyIndexTable.ExecuteBatchAsync(batchIndex);
-                    await Task.WhenAll(t1, t2);
+                    await _loginTable.ExecuteBatchAsync(batch);
                     batch.Clear();
-                    batchIndex.Clear();
                 }
                 catch { }
 
@@ -412,7 +407,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 {
                     try
                     {
-                        _loginTable.Execute(op);
+                        await _loginTable.ExecuteAsync(op);
                     }
                     catch
                     {
@@ -420,12 +415,12 @@ namespace AccidentalFish.AspNet.Identity.Azure
                     }
                 }
 
-                //If a batch wont work, try individually
+                //Delete the index individually becase of the partition keys
                 foreach (TableOperation op in batchIndex)
                 {
                     try
                     {
-                        _loginProviderKeyIndexTable.Execute(op);
+                        await _loginProviderKeyIndexTable.ExecuteAsync(op);
                     }
                     catch
                     {
@@ -520,6 +515,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             TableBatchOperation batch = new TableBatchOperation();
             foreach (TableUserClaim claim in Claims)
             {
+                claim.ETag = "*"; //Delete even it has changed
                 batch.Add(TableOperation.Delete(claim));
                 if (batch.Count >= 100)
                 {
@@ -537,7 +533,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                     {
                         try
                         {
-                            _claimsTable.Execute(op);
+                            await _claimsTable.ExecuteAsync(op);
                         }
                         catch
                         {
@@ -564,7 +560,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 {
                     try
                     {
-                        _claimsTable.Execute(op);
+                        await _claimsTable.ExecuteAsync(op);
                     }
                     catch
                     {
@@ -615,6 +611,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             TableBatchOperation batch = new TableBatchOperation();
             foreach (TableUserRole role in Roles)
             {
+                role.ETag = "*"; //Delete even if it has changed
                 batch.Add(TableOperation.Delete(role));
                 if (batch.Count >= 100)
                 {
@@ -631,7 +628,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                     {
                         try
                         {
-                            _rolesTable.Execute(op);
+                            await _rolesTable.ExecuteAsync(op);
                         }
                         catch
                         {
@@ -657,7 +654,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 {
                     try
                     {
-                        _rolesTable.Execute(op);
+                        await _rolesTable.ExecuteAsync(op);
                     }
                     catch
                     {
@@ -773,11 +770,11 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (String.IsNullOrWhiteSpace(email)) return null;
 
-            var retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
-            var indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
+            TableOperation retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
+            TableResult indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
             if (indexResult.Result == null) return null;
-            var user = (TableUserEmailIndex)indexResult.Result;
-            return await FindByIdAsync(user.UserId);
+            TableUserEmailIndex userEmailIndex = (TableUserEmailIndex)indexResult.Result;
+            return await FindByIdAsync(userEmailIndex.UserId);
         }
 
         public Task SetPhoneNumberAsync(T user, string phoneNumber)
