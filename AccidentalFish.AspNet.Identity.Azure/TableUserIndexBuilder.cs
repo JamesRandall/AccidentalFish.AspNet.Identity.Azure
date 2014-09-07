@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
+using AccidentalFish.AspNet.Identity.Azure.Extensions;
 
 namespace AccidentalFish.AspNet.Identity.Azure
 {
@@ -41,7 +42,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 querySegment = await _userTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
                 foreach (TableUser tableUser in querySegment.Results)
                 {
-                    TableUserIdIndex indexItem = new TableUserIdIndex(tableUser.UserName, tableUser.Id);
+                    TableUserIdIndex indexItem = new TableUserIdIndex(tableUser.UserName.Base64Encode(), tableUser.Id);
                     insertOperation.Add(_userIndexTable.ExecuteAsync(TableOperation.InsertOrReplace(indexItem)));
                     if (insertOperation.Count > 100)
                     {

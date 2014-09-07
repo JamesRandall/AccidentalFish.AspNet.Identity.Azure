@@ -8,7 +8,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
     {
         public TableUserLoginProviderKeyIndex(string userId, string loginProviderKey, string loginProvider)
         {
-            PartitionKey = String.Format("{0}_{1}", loginProvider, loginProviderKey.Base64Encode());
+            PartitionKey = String.Format("{0}_{1}", loginProvider.Base64Encode(), loginProviderKey.Base64Encode());
             RowKey = "";
             UserId = userId;
         }
@@ -18,7 +18,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
 
         public string GetLoginProvider()
         {
-            return PartitionKey.Substring(0, PartitionKey.IndexOf('_')-1);
+            return PartitionKey.Substring(0, PartitionKey.IndexOf('_')-1).Base64Decode();
         }
 
         public string GetLoginProviderKey()

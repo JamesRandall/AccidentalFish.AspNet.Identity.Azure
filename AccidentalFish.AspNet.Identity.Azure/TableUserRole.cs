@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.AspNet.Identity;
 using Microsoft.WindowsAzure.Storage.Table;
+using AccidentalFish.AspNet.Identity.Azure.Extensions;
 
 namespace AccidentalFish.AspNet.Identity.Azure
 {
@@ -22,7 +23,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         public void SetPartitionAndRowKey()
         {
             PartitionKey = UserId;
-            RowKey = Name;
+            RowKey = Name.Base64Encode();
         }
 
         public string UserId { get; set; }
