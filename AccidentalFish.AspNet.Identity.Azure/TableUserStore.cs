@@ -25,7 +25,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         IUserLockoutStore<T, string>,
         IDisposable where T : TableUser, new()
     {
-        private readonly DateTimeOffset _minTableStoreDate = new DateTimeOffset(1753, 1, 1, 0, 0, 0, TimeSpan.FromHours(0));
+        private readonly DateTimeOffset _minTableStoreDate = new DateTimeOffset(1753, 1, 1, 0, 0, 1, TimeSpan.FromHours(0));
 
         private readonly CloudTable _userTable;
         private readonly CloudTable _loginTable;
@@ -180,7 +180,11 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             // assumption here is that a username can't change (if it did we'd need to fix the index)
             if (user == null) throw new ArgumentNullException("user");
-            TableOperation operation = TableOperation.Replace(user);
+            TableOperation operation = TableOperation.Merge(user);
+            if (user.LockoutEndDate < _minTableStoreDate)
+            {
+                user.LockoutEndDate = _minTableStoreDate;
+            }
             await _userTable.ExecuteAsync(operation);
         }
 
