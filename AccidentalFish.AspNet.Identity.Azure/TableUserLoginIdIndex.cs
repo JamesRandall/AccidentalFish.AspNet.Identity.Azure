@@ -9,10 +9,10 @@ namespace AccidentalFish.AspNet.Identity.Azure
             
         }
 
-        public TableUserIdIndex(string userName, string userId)
+        public TableUserIdIndex(string base64UserName, string userId)
         {
-            PartitionKey = userName;
-            RowKey = userName;
+            PartitionKey = base64UserName;
+            RowKey = base64UserName;
             UserId = userId;
         }
 

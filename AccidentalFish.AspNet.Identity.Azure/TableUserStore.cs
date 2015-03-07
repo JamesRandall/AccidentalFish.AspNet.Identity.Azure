@@ -92,7 +92,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             user.SetPartitionAndRowKey();
-            TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName, user.Id);
+            TableUserIdIndex indexItem = new TableUserIdIndex(user.UserName.Base64Encode(), user.Id);
             TableOperation indexOperation = TableOperation.Insert(indexItem);
 
             try
@@ -120,6 +120,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 {
                     try
                     {
+                        indexItem.ETag = "*";
                         TableOperation deleteOperation = TableOperation.Delete(indexItem);
                         _userIndexTable.ExecuteAsync(deleteOperation).Wait();
                     }
@@ -170,6 +171,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             catch (Exception)
             {
                 // attempt to delete the index item - needs work
+                indexItem.ETag = "*";
                 TableOperation deleteOperation = TableOperation.Delete(indexItem);
                 _userIndexTable.ExecuteAsync(deleteOperation).Wait();
                 throw;
@@ -180,6 +182,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             // assumption here is that a username can't change (if it did we'd need to fix the index)
             if (user == null) throw new ArgumentNullException("user");
+            user.ETag = "*";
             TableOperation operation = TableOperation.Merge(user);
             if (user.LockoutEndDate < _minTableStoreDate)
             {
@@ -192,7 +195,51 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             TableOperation operation = TableOperation.Delete(user);
+            user.ETag = "*";
             await _userTable.ExecuteAsync(operation);
+
+            //Clean up
+            try 
+            { 
+                await RemoveFromAllRolesAsync(user); 
+            }
+                // ReSharper disable once EmptyGeneralCatchClause
+            catch { }
+
+            try
+            {
+                await RemoveAllClaimsAsync(user);
+            }
+                // ReSharper disable once EmptyGeneralCatchClause
+            catch { }
+
+            try
+            {
+                await RemoveAllLoginsAsync(user);
+            }
+                // ReSharper disable once EmptyGeneralCatchClause
+            catch { }
+
+            try
+            {
+                await RemoveIndices(user);
+            }
+                // ReSharper disable once EmptyGeneralCatchClause
+            catch { }
+
+        }
+
+        private async Task RemoveIndices(T user)
+        {
+            TableUserIdIndex userIdIndex = new TableUserIdIndex(user.UserName.Base64Encode(),user.Id);
+            userIdIndex.ETag = "*";
+            TableUserEmailIndex emailIndex = new TableUserEmailIndex(user.Email.Base64Encode(),user.Id);
+            emailIndex.ETag = "*";
+
+            Task t1 = _userIndexTable.ExecuteAsync(TableOperation.Delete(userIdIndex));
+            Task t2 = _userEmailIndexTable.ExecuteAsync(TableOperation.Delete(emailIndex));
+
+            await Task.WhenAll(t1, t2);
         }
 
         public Task<T> FindByIdAsync(string userId)
@@ -241,7 +288,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
             return Task.Factory.StartNew(() =>
             {
                 TableQuery<TableUserIdIndex> indexQuery = new TableQuery<TableUserIdIndex>().Where(
-                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userName)).Take(1);
+                    TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, userName.Base64Encode())).Take(1);
                 IEnumerable<TableUserIdIndex> indexResults = _userIndexTable.ExecuteQuery(indexQuery);
                 TableUserIdIndex indexItem = indexResults.SingleOrDefault();
 
@@ -263,18 +310,138 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
-            TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
-            TableOperation operation = TableOperation.Insert(login);
+
+            var login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
+            var operation = TableOperation.Insert(login);
             await _loginTable.ExecuteAsync(operation);
+
+            var loginIndexItem = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+            await _loginProviderKeyIndexTable.ExecuteAsync(TableOperation.InsertOrReplace(loginIndexItem));
         }
 
         public async Task RemoveLoginAsync(T user, UserLoginInfo loginInfo)
         {
             if (user == null) throw new ArgumentNullException("user");
             if (loginInfo == null) throw new ArgumentNullException("loginInfo");
+
             TableUserLogin login = new TableUserLogin(user.Id, loginInfo.LoginProvider, loginInfo.ProviderKey);
+            login.ETag = "*";
             TableOperation operation = TableOperation.Delete(login);
-            await  _loginTable.ExecuteAsync(operation);
+            await _loginTable.ExecuteAsync(operation);
+
+            TableUserLoginProviderKeyIndex loginIndexItem = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+            loginIndexItem.ETag = "*";
+            TableOperation indexOperation = TableOperation.Delete(loginIndexItem);
+            await _loginProviderKeyIndexTable.ExecuteAsync(indexOperation);
+        }
+
+        public async Task RemoveAllLoginsAsync(T user)
+        {
+            bool error = false;
+            List<TableUserLogin> Logins = new List<TableUserLogin>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserLogin> query = new TableQuery<TableUserLogin>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserLogin> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _loginTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                Logins.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            TableBatchOperation batchIndex = new TableBatchOperation();
+            foreach (TableUserLogin login in Logins)
+            {
+                login.ETag = "*"; //Delete even if it has changed
+                batch.Add(TableOperation.Delete(login));
+                TableUserLoginProviderKeyIndex providerKeyIndex = new TableUserLoginProviderKeyIndex(user.Id, login.ProviderKey, login.LoginProvider);
+                providerKeyIndex.ETag = "*";
+                batchIndex.Add(TableOperation.Delete(providerKeyIndex));
+
+                if (batch.Count >= 100 || batchIndex.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        await _loginTable.ExecuteBatchAsync(batch);
+                        batch.Clear();
+                    }
+                    catch { }
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            await _loginTable.ExecuteAsync(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    //Delete the index individually becase of the partition keys
+                    foreach (TableOperation op in batchIndex)
+                    {
+                        try
+                        {
+                            await _loginProviderKeyIndexTable.ExecuteAsync(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                    batchIndex.Clear();
+                }
+
+            }
+            if (batch.Count > 0 || batchIndex.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    await _loginTable.ExecuteBatchAsync(batch);
+                    batch.Clear();
+                }
+                    // ReSharper disable once EmptyGeneralCatchClause
+                catch { }
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        await _loginTable.ExecuteAsync(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+
+                //Delete the index individually becase of the partition keys
+                foreach (TableOperation op in batchIndex)
+                {
+                    try
+                    {
+                        await _loginProviderKeyIndexTable.ExecuteAsync(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+
+            if (error)
+            {
+                throw new Exception();
+            }
         }
 
         public Task<IList<UserLoginInfo>> GetLoginsAsync(T user)
@@ -335,8 +502,86 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (user == null) throw new ArgumentNullException("user");
             if (claim == null) throw new ArgumentNullException("claim");
             TableUserClaim tableUserClaim = new TableUserClaim(user.Id, claim.Type, claim.Value);
+            tableUserClaim.ETag = "*";
             TableOperation operation = TableOperation.Delete(tableUserClaim);
             await _claimsTable.ExecuteAsync(operation);
+        }
+
+        public async Task RemoveAllClaimsAsync(T user)
+        {
+            bool error = false;
+            List<TableUserClaim> claims = new List<TableUserClaim>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserClaim> query = new TableQuery<TableUserClaim>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserClaim> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _claimsTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                claims.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            foreach (TableUserClaim claim in claims)
+            {
+                claim.ETag = "*"; //Delete even it has changed
+                batch.Add(TableOperation.Delete(claim));
+                if (batch.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        await _claimsTable.ExecuteBatchAsync(batch);
+                        batch.Clear();
+                    }
+                    catch {}
+
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            await _claimsTable.ExecuteAsync(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                }
+            }
+            if (batch.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    await _claimsTable.ExecuteBatchAsync(batch);
+                    batch.Clear();
+                }
+                catch { }
+
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        await _claimsTable.ExecuteAsync(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+
+            if(error)
+            {
+                throw new Exception();
+            }
         }
 
         public async Task AddToRoleAsync(T user, string role)
@@ -353,8 +598,83 @@ namespace AccidentalFish.AspNet.Identity.Azure
             if (user == null) throw new ArgumentNullException("user");
             if (String.IsNullOrWhiteSpace(role)) throw new ArgumentNullException("role");
             TableUserRole tableUserRole = new TableUserRole(user.Id, role);
+            tableUserRole.ETag = "*";
             TableOperation operation = TableOperation.Delete(tableUserRole);
             await _rolesTable.ExecuteAsync(operation);
+        }
+
+        public async Task RemoveFromAllRolesAsync(T user)
+        {
+            bool error = false;
+            List<TableUserRole> roles = new List<TableUserRole>();
+            string partitionKeyQuery = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, user.Id);
+            TableQuery<TableUserRole> query = new TableQuery<TableUserRole>().Where(partitionKeyQuery);
+            TableQuerySegment<TableUserRole> querySegment = null;
+
+            while (querySegment == null || querySegment.ContinuationToken != null)
+            {
+                querySegment = await _rolesTable.ExecuteQuerySegmentedAsync(query, querySegment != null ? querySegment.ContinuationToken : null);
+                roles.AddRange(querySegment.Results);
+            }
+
+            TableBatchOperation batch = new TableBatchOperation();
+            foreach (TableUserRole role in roles)
+            {
+                role.ETag = "*"; //Delete even if it has changed
+                batch.Add(TableOperation.Delete(role));
+                if (batch.Count >= 100)
+                {
+                    try
+                    {
+                        //Try executing as a batch
+                        await _rolesTable.ExecuteBatchAsync(batch);
+                        batch.Clear();
+                    }
+                    catch { }
+
+                    //If a batch wont work, try individually
+                    foreach (TableOperation op in batch)
+                    {
+                        try
+                        {
+                            await _rolesTable.ExecuteAsync(op);
+                        }
+                        catch
+                        {
+                            error = true;
+                        }
+                    }
+
+                    batch.Clear();
+                }
+            }
+            if (batch.Count > 0)
+            {
+                try
+                {
+                    //Try executing as a batch
+                    await _rolesTable.ExecuteBatchAsync(batch);
+                    batch.Clear();
+                }
+                catch { }
+
+                //If a batch wont work, try individually
+                foreach (TableOperation op in batch)
+                {
+                    try
+                    {
+                        await _rolesTable.ExecuteAsync(op);
+                    }
+                    catch
+                    {
+                        error = true;
+                    }
+                }
+            }
+            if(error)
+            {
+                throw new Exception();
+            }
         }
 
         public async Task<IList<string>> GetRolesAsync(T user)
@@ -459,11 +779,11 @@ namespace AccidentalFish.AspNet.Identity.Azure
         {
             if (String.IsNullOrWhiteSpace(email)) return null;
 
-            var retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
-            var indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
+            TableOperation retrieveIndexOp = TableOperation.Retrieve<TableUserEmailIndex>(email.Base64Encode(), "");
+            TableResult indexResult = await _userEmailIndexTable.ExecuteAsync(retrieveIndexOp);
             if (indexResult.Result == null) return null;
-            var user = (TableUserEmailIndex)indexResult.Result;
-            return await FindByIdAsync(user.UserId);
+            TableUserEmailIndex userEmailIndex = (TableUserEmailIndex)indexResult.Result;
+            return await FindByIdAsync(userEmailIndex.UserId);
         }
 
         public Task SetPhoneNumberAsync(T user, string phoneNumber)

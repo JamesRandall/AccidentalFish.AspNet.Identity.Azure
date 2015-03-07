@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>accidentalfish.aspnet.identity.azure</id>
-    <version>0.3.0.6</version>
+    <version>0.4.0.0</version>
     <title>ASP.Net 4.5 Azure Identity Helpers</title>
     <authors>James Randall</authors>
     <owners>James Randall</owners>
@@ -12,7 +12,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>ASP.Net identity utilities for Azure</description>
     <summary>Includes a claims manager to map Azure AD groups into Authorize compatible roles and a drop in replacement identity store provider for MVC 5 / Web API projects to enable use of table storage, rather than SQL, for logins, roles, claims etc. with the ASP.Net Idendity Provider. See the project site / blog post for instructions on how to use.</summary>
-    <releaseNotes>Fixes for external identity providers, performance improvements when dealing with millions of users, supports ASP.Net Identity Provider 2.0 features</releaseNotes>
+    <releaseNotes>Fixes for Azure emulator and user updates, also includes contributor fixes for partition and row keys and etags.</releaseNotes>
     <copyright>Copyright 2013 Accidental Fish Ltd.</copyright>
     <tags>azure table storage oauth web api owin aspnet claims claimsauthenticationmanager active directory role authorize authorization authentication</tags>
     <dependencies>
