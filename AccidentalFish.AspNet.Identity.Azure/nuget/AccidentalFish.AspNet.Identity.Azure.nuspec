@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>accidentalfish.aspnet.identity.azure</id>
-    <version>0.4.0.0</version>
+    <version>0.5.0.0</version>
     <title>ASP.Net 4.5 Azure Identity Helpers</title>
     <authors>James Randall</authors>
     <owners>James Randall</owners>
@@ -16,11 +16,11 @@
     <copyright>Copyright 2013 Accidental Fish Ltd.</copyright>
     <tags>azure table storage oauth web api owin aspnet claims claimsauthenticationmanager active directory role authorize authorization authentication</tags>
     <dependencies>
-        <dependency id="WindowsAzure.Storage" version="3.1.0.1" />
+        <dependency id="WindowsAzure.Storage" version="4.3.0" />
         <dependency id="Microsoft.AspNet.Identity.Core" version="2.0.0" />
-        <dependency id="Microsoft.Data.Services.Client" version="5.6.1" />
+        <dependency id="Microsoft.Data.Services.Client" version="5.6.2" />
         <dependency id="Newtonsoft.Json" version="6.0.2" />
-        <dependency id="Microsoft.WindowsAzure.ConfigurationManager" version="2.0.3" />
+        <dependency id="Microsoft.WindowsAzure.ConfigurationManager" version="3.1.0" />
     </dependencies>
   </metadata>
 </package>

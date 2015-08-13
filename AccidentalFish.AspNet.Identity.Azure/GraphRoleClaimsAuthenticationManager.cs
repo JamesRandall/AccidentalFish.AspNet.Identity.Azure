@@ -4,7 +4,7 @@ using System.Linq;
 using System.Security;
 using System.Security.Claims;
 using AccidentalFish.AspNet.Identity.Azure.GraphAPIHelper;
-using Microsoft.WindowsAzure;
+using Microsoft.Azure;
 using Microsoft.WindowsAzure.ActiveDirectory;
 using Microsoft.WindowsAzure.ActiveDirectory.GraphHelper;
 
@@ -73,7 +73,7 @@ namespace AccidentalFish.AspNet.Identity.Azure
                 List<Group> currentRoles = currentUser.memberOf.OfType<Group>().ToList();
                 foreach (Group role in currentRoles)
                 {
-                    ((ClaimsIdentity)incomingPrincipal.Identity).AddClaim(new Claim(ClaimTypes.Role, role.displayName, ClaimValueTypes.String, _issuer));
+                    ((ClaimsIdentity) incomingPrincipal.Identity).AddClaim(new Claim(ClaimTypes.Role, role.displayName, ClaimValueTypes.String, _issuer));
                 }
             }
             return base.Authenticate(resourceName, incomingPrincipal);
